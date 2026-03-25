@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8" />
+        <title>归元静坐 - 点击开始</title>
+        <style>
+            body {
+                margin: 0;
+                background: #020205;
+                overflow: hidden;
+                cursor: crosshair;
+            }
+            canvas {
+                display: block;
+            }
+            #overlay {
+                position: absolute;
+                inset: 0;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                color: #5a67d8;
+                pointer-events: none;
+                transition: opacity 1.8s;
+                z-index: 10;
+            }
+            #overlay.hidden {
+                opacity: 0;
+            }
+            h1 {
+                font-weight: 100;
+                font-size: 4.2rem;
+                letter-spacing: 16px;
+                margin: 0;
+            }
+            .hint {
+                margin-top: 2rem;
+                font-size: 1.1rem;
+                letter-spacing: 8px;
+                color: #4a5568;
+                text-transform: uppercase;
+            }
+            select {
+                position: absolute;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 20;
+                padding: 0.5em 1em;
+                font-size: 1rem;
+                background: rgba(30, 40, 60, 0.6);
+                color: #d0d8ff;
+                border: 1px solid #4a5568;
+                border-radius: 6px;
+                pointer-events: auto;
+            }
+        </style>
+    </head>
+    <body>
+        <select id="duration">
+            <option value="0">无限</option>
+            <option value="5">5 min</option>
+            <option value="10" selected>10 min</option>
+            <option value="15">15 min</option>
+            <option value="20">20 min</option>
+            <option value="30">30 min</option>
+            <option value="45">45 min</option>
+            <option value="60">60 min</option>
+            <option value="90">90 min</option>
+            <option value="120">120 min</option>
+        </select>
+
+        <div id="overlay">
+            <h1>归元静坐</h1>
+            <div class="hint">点击任意位置 开始 / 停止</div>
+        </div>
+
+        <canvas id="canvas"></canvas>
+
+        <script>
+            const canvas = document.getElementById("canvas");
+            const ctx = canvas.getContext("2d");
+            let width, height;
+            let audioCtx = null;
+            let isPlaying = false;
+            let timerId = null;
+            let remaining = 0; // 秒
+            let isInfinite = true;
+
+            // Lorenz 参数
+            let x = 0.1,
+                y = 0,
+                z = 0;
+            const sigma = 10,
+                rho = 28,
+                beta = 8 / 3;
+            const dt = 0.0075;
+            let points = [];
+            const maxPoints = 2000;
+
+            const scale = [
+                196.0, 220.0, 261.63, 293.66, 329.63, 392.0, 440.0, 523.25,
+            ];
+
+            function resize() {
+                width = canvas.width = window.innerWidth;
+                height = canvas.height = window.innerHeight;
+            }
+            window.addEventListener("resize", resize);
+            resize();
+
+            // 点击控制播放/停止
+            document.body.addEventListener("click", (e) => {
+                if (e.target.tagName === "SELECT") return;
+
+                if (!audioCtx) {
+                    initAudio();
+                }
+
+                isPlaying = !isPlaying;
+
+                if (isPlaying) {
+                    audioCtx.resume();
+                    document.getElementById("overlay").classList.add("hidden");
+                    startTimer();
+                } else {
+                    audioCtx.suspend();
+                    document
+                        .getElementById("overlay")
+                        .classList.remove("hidden");
+                    stopTimer();
+                    document.title = "归元静坐 - 已停止";
+                }
+            });
+
+            function initAudio() {
+                audioCtx = new (
+                    window.AudioContext || window.webkitAudioContext
+                )();
+                createDeepAmbience();
+                createNatureAmbience();
+                setInterval(() => {
+                    if (isPlaying) playPulse(50, 0.08, 0.6);
+                }, 1000);
+            }
+
+            // ======================
+            // 请把你原有的这三个函数完整粘贴进来
+            // createDeepAmbience()
+            // createNatureAmbience()
+            // playPulse(freq, vol, decay)
+            // ======================
+            function createDeepAmbience() {
+                /* 原代码 */
+            }
+            function createNatureAmbience() {
+                /* 原代码 */
+            }
+            function playPulse(freq, vol, decay) {
+                /* 原代码 */
+            }
+
+            function playGuqinNode(lx, lz) {
+                if (!audioCtx) return;
+                const osc = audioCtx.createOscillator();
+                const g = audioCtx.createGain();
+                const filter = audioCtx.createBiquadFilter();
+                const pan = audioCtx.createStereoPanner();
+
+                filter.type = "lowpass";
+                filter.frequency.value = 3000;
+
+                const idx = Math.floor(Math.abs(lx) % scale.length);
+                osc.frequency.value = scale[idx];
+                osc.type = "sine";
+
+                pan.pan.value = Math.max(-1, Math.min(1, lx / 25));
+
+                g.gain.setValueAtTime(0, audioCtx.currentTime);
+                g.gain.linearRampToValueAtTime(0.02, audioCtx.currentTime + 1);
+                g.gain.exponentialRampToValueAtTime(
+                    0.001,
+                    audioCtx.currentTime + 10,
+                );
+
+                osc.connect(filter)
+                    .connect(g)
+                    .connect(pan)
+                    .connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 11);
+            }
+
+            // 定时器逻辑
+            function startTimer() {
+                stopTimer();
+
+                const val = parseInt(document.getElementById("duration").value);
+                isInfinite = val === 0;
+
+                if (isInfinite) {
+                    remaining = Infinity;
+                    document.title = "归元静坐";
+                    return;
+                }
+
+                remaining = val * 60;
+                updateTitle();
+
+                timerId = setInterval(() => {
+                    remaining--;
+                    updateTitle();
+
+                    if (remaining <= 0) {
+                        stopTimer();
+                        isPlaying = false;
+                        audioCtx?.suspend();
+                        document
+                            .getElementById("overlay")
+                            .classList.remove("hidden");
+                        document.title = "归元静坐 - 已结束";
+                    }
+                }, 1000);
+            }
+
+            function stopTimer() {
+                if (timerId) {
+                    clearInterval(timerId);
+                    timerId = null;
+                }
+            }
+
+            function updateTitle() {
+                if (isInfinite || remaining <= 0) return;
+                const m = Math.floor(remaining / 60);
+                const s = remaining % 60;
+                document.title = `归元静坐 - ${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+            }
+
+            // 时长改变 → 重置（但不自动播放）
+            document
+                .getElementById("duration")
+                .addEventListener("change", () => {
+                    stopTimer();
+                    if (isPlaying) {
+                        isPlaying = false;
+                        audioCtx?.suspend();
+                        document
+                            .getElementById("overlay")
+                            .classList.remove("hidden");
+                    }
+                    startTimer(); // 只重置，不播放
+                });
+
+            let stepCount = 0;
+
+            function animate() {
+                let dx = sigma * (y - x) * dt;
+                let dy = (x * (rho - z) - y) * dt;
+                let dz = (x * y - beta * z) * dt;
+                x += dx;
+                y += dy;
+                z += dz;
+
+                stepCount++;
+                if (isPlaying && stepCount % 40 === 0 && Math.abs(x) > 10) {
+                    playGuqinNode(x, z);
+                }
+
+                points.push({ x, y, z });
+                if (points.length > maxPoints) points.shift();
+
+                ctx.fillStyle = "rgba(2,2,5,0.15)";
+                ctx.fillRect(0, 0, width, height);
+
+                ctx.save();
+                ctx.translate(width / 2, height * 0.85);
+                const s = 14;
+
+                ctx.beginPath();
+                ctx.strokeStyle = "#1a202c";
+                ctx.lineWidth = 1;
+                for (let i = 1; i < points.length; i++) {
+                    ctx.lineTo(points[i].x * s, -points[i].z * s);
+                }
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(x * s, -z * s, 3.5, 0, Math.PI * 2);
+                const hue = 220 + z / 2;
+                ctx.fillStyle = `hsla(${hue},40%,50%,0.8)`;
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = `hsla(${hue},50%,40%,0.5)`;
+                ctx.fill();
+                ctx.restore();
+
+                requestAnimationFrame(animate);
+            }
+            animate();
+        </script>
+    </body>
+</html>

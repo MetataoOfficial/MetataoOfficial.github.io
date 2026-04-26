@@ -25,12 +25,7 @@
                 justify-content: center;
                 align-items: center;
                 color: #5a67d8;
-                transition: opacity 1.8s;
                 z-index: 10;
-                pointer-events: none;
-            }
-            #overlay.hidden {
-                opacity: 0;
                 pointer-events: none;
             }
 
@@ -48,7 +43,7 @@
                 margin-bottom: 2.5rem;
             }
 
-            /* 开始按钮 */
+            /* 主控制按钮 */
             #startBtn {
                 pointer-events: auto;
                 padding: 0.65em 2.2em;
@@ -59,9 +54,7 @@
                 border: 1px solid #3d4a8a;
                 border-radius: 4px;
                 cursor: pointer;
-                transition:
-                    background 0.3s,
-                    color 0.3s;
+                transition: all 0.3s;
                 font-family: inherit;
             }
             #startBtn:hover {
@@ -69,7 +62,7 @@
                 color: #a0aef8;
             }
 
-            /* 顶部工具栏 */
+            /* 顶部常驻工具栏 */
             #toolbar {
                 position: absolute;
                 top: 20px;
@@ -78,25 +71,45 @@
                 z-index: 20;
                 display: flex;
                 align-items: center;
-                gap: 12px;
+                gap: 20px;
+                padding: 10px 20px;
+                background: rgba(20, 30, 50, 0.4);
+                border-radius: 30px;
+                backdrop-filter: blur(4px);
             }
-            #toolbar select,
-            #toolbar button {
-                padding: 0.45em 0.9em;
-                font-size: 0.92rem;
-                background: rgba(20, 30, 50, 0.75);
+            #toolbar select {
+                padding: 0.3em 0.6em;
+                font-size: 0.85rem;
+                background: transparent;
                 color: #c0caff;
                 border: 1px solid #3a4568;
-                border-radius: 5px;
+                border-radius: 4px;
                 cursor: pointer;
                 font-family: inherit;
-                letter-spacing: 2px;
             }
-            #toolbar button {
-                transition: background 0.2s;
+
+            /* 极简音量滑动条 */
+            .vol-container {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                color: #5a67d8;
+                font-size: 0.8rem;
             }
-            #toolbar button:hover {
-                background: rgba(90, 103, 216, 0.2);
+            input[type="range"] {
+                -webkit-appearance: none;
+                width: 80px;
+                height: 2px;
+                background: #3a4568;
+                outline: none;
+            }
+            input[type="range"]::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                width: 10px;
+                height: 10px;
+                background: #5a67d8;
+                border-radius: 50%;
+                cursor: pointer;
             }
 
             /* 结束提示 */
@@ -138,13 +151,23 @@
                 <option value="20">20 min</option>
                 <option value="30">30 min</option>
                 <option value="45">45 min</option>
-                <option value="60">60 min</option>
-                <option value="90">90 min</option>
-                <option value="120">120 min</option>
-                <option value="180">180 min</option>
-                <option value="240">240 min</option>
+                <option value="60">1 hour</option>
+                <option value="90">1.5 hour</option>
+                <option value="120">2 huor</option>
+                <option value="180">3 hour</option>
+                <option value="240">4 hour</option>
             </select>
-            <button id="stopBtn" style="display: none">■ 停止</button>
+            <div class="vol-container">
+                <span>音量</span>
+                <input
+                    type="range"
+                    id="masterVol"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value="0.8"
+                />
+            </div>
         </div>
 
         <div id="overlay">
@@ -184,21 +207,22 @@
             window.addEventListener("resize", resize);
             resize();
 
-            // ─── 音量参数（可手动调整）─────────────────────────────────────────
-            const NOISE_VOL = 0.0; // 流水/风声底噪音量
-            const DRONE_VOL = 0.0; // 低频底鸣音量
-            const PULSE_VOL = 0.2; // 心跳脉冲音量
-            const BELL_VOL_S = 0.1; // 短钟音量
-            const BELL_VOL_L = 0.2; // 长钟音量
+            // ─── 音量参数 ──────────────────────────────────────────────────────
+            const NOISE_VOL = 0.0;
+            const DRONE_VOL = 0.0;
+            const PULSE_VOL = 0.2;
+            const BELL_VOL_S = 0.1;
+            const BELL_VOL_L = 0.2;
 
             // ─── State ─────────────────────────────────────────────────────────
             let audioCtx = null;
+            let masterGain = null; // 总增益控制
             let isPlaying = false;
             let timerId = null;
             let remaining = 0;
             let isInfinite = true;
-            let sessionStart = null; // Date.now() 记录开始时刻
-            let sessionDuration = 0; // 总秒数
+            let sessionStart = null;
+            let sessionDuration = 0;
 
             // ─── Audio helpers ─────────────────────────────────────────────────
             function getCtx() {
@@ -206,18 +230,16 @@
                     audioCtx = new (
                         window.AudioContext || window.webkitAudioContext
                     )();
+                    masterGain = audioCtx.createGain();
+                    masterGain.gain.value =
+                        document.getElementById("masterVol").value * 1.5;
+                    masterGain.connect(audioCtx.destination);
                 }
                 return audioCtx;
             }
 
-            /**
-             * createDeepAmbience — 低频连续底鸣（两个失谐震荡器 + 混响）
-             * 这是主要的「呼吸感」声底，持续运行。
-             */
             function createDeepAmbience() {
                 const ac = getCtx();
-
-                // 简易卷积混响（脉冲噪声法）
                 function makeReverb(duration = 3, decay = 2) {
                     const len = ac.sampleRate * duration;
                     const buf = ac.createBuffer(2, len, ac.sampleRate);
@@ -235,10 +257,9 @@
                 }
 
                 const reverb = makeReverb(4, 2.5);
-                reverb.connect(ac.destination);
+                reverb.connect(masterGain); // 改为连接到 masterGain
 
-                // 两个轻微失谐的正弦震荡器 → 产生缓慢拍频（呼吸感）
-                [40, 40.3].forEach((freq, i) => {
+                [40, 40.3].forEach((freq) => {
                     const osc = ac.createOscillator();
                     const gain = ac.createGain();
                     osc.type = "sine";
@@ -246,23 +267,22 @@
                     gain.gain.value = DRONE_VOL;
                     osc.connect(gain);
                     gain.connect(reverb);
-                    gain.connect(ac.destination);
+                    gain.connect(masterGain);
                     osc.start();
                 });
 
-                // 极慢 LFO 调制音量 → 仿呼吸起伏（周期约14秒）
                 const lfo = ac.createOscillator();
                 const lfoGain = ac.createGain();
                 lfo.frequency.value = 1 / 14;
-                lfoGain.gain.value = 0.3;
+                lfoGain.gain.value = 0.2;
                 lfo.type = "sine";
                 lfo.start();
                 lfo.connect(lfoGain);
-                // 让 lfo 调制 reverb 输入增益
+
                 const droneGain = ac.createGain();
-                droneGain.gain.value = 0.5;
-                lfoGain.connect(droneGain.gain); // 调制
-                // 220 Hz 泛音加倍丰富度
+                droneGain.gain.value = 0.0;
+                lfoGain.connect(droneGain.gain);
+
                 const osc2 = ac.createOscillator();
                 osc2.type = "sine";
                 osc2.frequency.value = 110;
@@ -271,15 +291,11 @@
                 osc2.start();
             }
 
-            /**
-             * createNatureAmbience — 白/粉噪声模拟远处流水/风声
-             */
             function createNatureAmbience() {
                 const ac = getCtx();
                 const bufSize = ac.sampleRate * 4;
                 const noiseBuffer = ac.createBuffer(1, bufSize, ac.sampleRate);
                 const data = noiseBuffer.getChannelData(0);
-                // 粉噪声（Voss法近似）
                 let b0 = 0,
                     b1 = 0,
                     b2 = 0,
@@ -301,7 +317,6 @@
                 source.buffer = noiseBuffer;
                 source.loop = true;
 
-                // 带通滤波 → 保留「溪流」频段
                 const filter = ac.createBiquadFilter();
                 filter.type = "bandpass";
                 filter.frequency.value = 600;
@@ -310,13 +325,10 @@
                 const gain = ac.createGain();
                 gain.gain.value = NOISE_VOL;
 
-                source.connect(filter).connect(gain).connect(ac.destination);
+                source.connect(filter).connect(gain).connect(masterGain);
                 source.start();
             }
 
-            /**
-             * playPulse — 极轻的低频鼓点（心跳感）
-             */
             function playPulse(freq = 50, vol = PULSE_VOL, decay = 0.55) {
                 const ac = getCtx();
                 const osc = ac.createOscillator();
@@ -332,12 +344,11 @@
                     0.001,
                     ac.currentTime + decay,
                 );
-                osc.connect(gain).connect(ac.destination);
+                osc.connect(gain).connect(masterGain);
                 osc.start();
                 osc.stop(ac.currentTime + decay + 0.05);
             }
 
-            // ─── 古琴音节（Lorenz 触发）──────────────────────────────────────────
             const scale = [
                 196.0, 220.0, 261.63, 293.66, 329.63, 392.0, 440.0, 523.25,
             ];
@@ -361,29 +372,20 @@
                 g.gain.linearRampToValueAtTime(0.022, ac.currentTime + 1);
                 g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 10);
 
-                osc.connect(filter)
-                    .connect(g)
-                    .connect(pan)
-                    .connect(ac.destination);
+                osc.connect(filter).connect(g).connect(pan).connect(masterGain);
                 osc.start();
                 osc.stop(ac.currentTime + 11);
             }
 
-            // ─── 钟声（结束）───────────────────────────────────────────────────
-            /**
-             * 敲钟：一短一长，仿铜钟余韵
-             * 短击约 0.5s 后再来一声更饱满的长鸣（类似足球终场哨：嘀——嘟——）
-             */
             function playBell(delay = 0, duration = 6, volume = 0.35) {
                 const ac = getCtx();
-                // 铜钟由多个泛音叠加
                 const partials = [
                     { ratio: 1, vol: 1.0 },
                     { ratio: 2.76, vol: 0.4 },
                     { ratio: 5.4, vol: 0.25 },
                     { ratio: 8.93, vol: 0.12 },
                 ];
-                const baseFreq = 220; // A3
+                const baseFreq = 220;
 
                 partials.forEach(({ ratio, vol }) => {
                     const osc = ac.createOscillator();
@@ -397,68 +399,24 @@
                         0.001,
                         t0 + duration,
                     );
-                    osc.connect(gain).connect(ac.destination);
+                    osc.connect(gain).connect(masterGain);
                     osc.start(t0);
                     osc.stop(t0 + duration + 0.1);
                 });
             }
 
             function ringEndBells() {
-                playBell(0.3, 3, BELL_VOL_S); // 短击，余韵3s
-                playBell(1.8, 8, BELL_VOL_L); // 长鸣，余韵8s
+                playBell(0.3, 3, BELL_VOL_S);
+                playBell(1.8, 8, BELL_VOL_L);
             }
 
-            // ─── 静音 <audio> 保活 ─────────────────────────────────────────────
-            // 动态生成一个最小合法 WAV（44字节头+2字节静音），base64 塞进 <audio loop>
-            // 浏览器看到 <audio> 在播放，就不会 suspend AudioContext，无需任何外部文件
             function makeSilentAudio() {
                 const wav = new Uint8Array([
-                    0x52,
-                    0x49,
-                    0x46,
-                    0x46,
-                    0x26,
-                    0x00,
-                    0x00,
-                    0x00, // "RIFF", size=38
-                    0x57,
-                    0x41,
-                    0x56,
-                    0x45, // "WAVE"
-                    0x66,
-                    0x6d,
-                    0x74,
-                    0x20,
-                    0x10,
-                    0x00,
-                    0x00,
-                    0x00, // "fmt ", subchunk=16
-                    0x01,
-                    0x00,
-                    0x01,
-                    0x00, // PCM, mono
-                    0x44,
-                    0xac,
-                    0x00,
-                    0x00,
-                    0x88,
-                    0x58,
-                    0x01,
-                    0x00, // 44100 Hz, byteRate
-                    0x02,
-                    0x00,
-                    0x10,
-                    0x00, // blockAlign, 16bit
-                    0x64,
-                    0x61,
-                    0x74,
-                    0x61,
-                    0x02,
-                    0x00,
-                    0x00,
-                    0x00, // "data", size=2
-                    0x00,
-                    0x00, // 1 sample silence
+                    0x52, 0x49, 0x46, 0x46, 0x26, 0x00, 0x00, 0x00, 0x57, 0x41,
+                    0x56, 0x45, 0x66, 0x6d, 0x74, 0x20, 0x10, 0x00, 0x00, 0x00,
+                    0x01, 0x00, 0x01, 0x00, 0x44, 0xac, 0x00, 0x00, 0x88, 0x58,
+                    0x01, 0x00, 0x02, 0x00, 0x10, 0x00, 0x64, 0x61, 0x74, 0x61,
+                    0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
                 ]);
                 const b64 = btoa(String.fromCharCode(...wav));
                 const el = document.createElement("audio");
@@ -472,24 +430,20 @@
 
             // ─── 播放控制 ──────────────────────────────────────────────────────
             let pulseInterval = null;
-            let guqinInterval = null;
 
             function startAudio() {
                 const ac = getCtx();
                 if (ac.state === "suspended") ac.resume();
 
-                // 启动静音 <audio>：让浏览器认为这是"媒体播放"，不会 suspend AudioContext
                 if (!_silentAudio) _silentAudio = makeSilentAudio();
                 _silentAudio.play().catch(() => {});
 
-                // 首次初始化背景音
                 if (!startAudio._initialized) {
                     createDeepAmbience();
                     createNatureAmbience();
                     startAudio._initialized = true;
                 }
 
-                // 心跳脉冲 1次/秒
                 pulseInterval = setInterval(() => {
                     if (isPlaying) playPulse(50, PULSE_VOL, 0.55);
                 }, 1000);
@@ -497,21 +451,9 @@
 
             function stopAudio() {
                 clearInterval(pulseInterval);
-                clearInterval(guqinInterval);
                 if (_silentAudio) _silentAudio.pause();
                 if (audioCtx) audioCtx.suspend();
             }
-
-            // ─── 可见性监听（保底）────────────────────────────────────────────
-            // 万一浏览器还是 suspend 了，切回前台时立即 resume
-            document.addEventListener("visibilitychange", () => {
-                if (!isPlaying) return;
-                if (document.visibilityState === "visible") {
-                    if (audioCtx && audioCtx.state === "suspended")
-                        audioCtx.resume();
-                    if (_silentAudio) _silentAudio.play().catch(() => {});
-                }
-            });
 
             // ─── 定时器 ────────────────────────────────────────────────────────
             function startTimer() {
@@ -527,7 +469,6 @@
                 remaining = sessionDuration;
                 updateTitle();
 
-                // 用 Date.now() 差值计算，避免后台标签页节流导致的漂移
                 timerId = setInterval(() => {
                     const elapsed = Math.floor(
                         (Date.now() - sessionStart) / 1000,
@@ -539,7 +480,7 @@
                     } else {
                         updateTitle();
                     }
-                }, 500); // 每500ms检查一次，减少误差
+                }, 500);
             }
 
             function stopTimer() {
@@ -559,68 +500,65 @@
             function endSession() {
                 stopTimer();
                 isPlaying = false;
-                clearInterval(pulseInterval); // 停心跳，但先不 suspend audioCtx
+                document.getElementById("startBtn").innerHTML = "▶ 开始静坐";
 
-                // 必须先 resume 确保 audioCtx 在运行状态，才能调度钟声
                 const ac = getCtx();
                 const doRing = () => {
                     ringEndBells();
-                    // 钟声最长余韵约 1.8+8+0.5 ≈ 10.5s，之后再 suspend
                     setTimeout(() => {
                         if (audioCtx) audioCtx.suspend();
                     }, 11000);
                 };
 
-                if (ac.state === "suspended") {
-                    ac.resume().then(doRing);
-                } else {
-                    doRing();
-                }
+                if (ac.state === "suspended") ac.resume().then(doRing);
+                else doRing();
 
                 setTimeout(() => {
                     document.getElementById("endMsg").classList.add("show");
-                    document.getElementById("stopBtn").style.display = "none";
                     document.title = "归元静坐 - 圆满";
                 }, 600);
             }
 
             // ─── UI 事件 ───────────────────────────────────────────────────────
-            document
-                .getElementById("startBtn")
-                .addEventListener("click", () => {
+            const startBtn = document.getElementById("startBtn");
+            const masterVol = document.getElementById("masterVol");
+
+            startBtn.addEventListener("click", () => {
+                if (!isPlaying) {
+                    // 开始播放
                     isPlaying = true;
-                    document.getElementById("overlay").classList.add("hidden");
-                    document.getElementById("stopBtn").style.display = "";
+                    startBtn.innerHTML = "■ 停止";
                     document.getElementById("endMsg").classList.remove("show");
                     startAudio();
                     startTimer();
-                });
-
-            document.getElementById("stopBtn").addEventListener("click", () => {
-                if (isPlaying) {
+                } else {
+                    // 停止播放
                     isPlaying = false;
+                    startBtn.innerHTML = "▶ 开始静坐";
                     stopAudio();
                     stopTimer();
-                    document
-                        .getElementById("overlay")
-                        .classList.remove("hidden");
-                    document.getElementById("stopBtn").style.display = "none";
                     document.title = "归元静坐 - 已停止";
+                }
+            });
+
+            masterVol.addEventListener("input", (e) => {
+                if (masterGain) {
+                    masterGain.gain.setTargetAtTime(
+                        e.target.value,
+                        getCtx().currentTime,
+                        0.05,
+                    );
                 }
             });
 
             document
                 .getElementById("duration")
                 .addEventListener("change", () => {
-                    stopTimer();
                     if (isPlaying) {
                         isPlaying = false;
+                        startBtn.innerHTML = "▶ 开始静坐";
                         stopAudio();
-                        document
-                            .getElementById("overlay")
-                            .classList.remove("hidden");
-                        document.getElementById("stopBtn").style.display =
-                            "none";
+                        stopTimer();
                     }
                 });
 

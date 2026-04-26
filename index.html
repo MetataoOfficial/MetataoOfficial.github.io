@@ -141,6 +141,8 @@
                 <option value="60">60 min</option>
                 <option value="90">90 min</option>
                 <option value="120">120 min</option>
+                <option value="180">180 min</option>
+                <option value="240">240 min</option>
             </select>
             <button id="stopBtn" style="display: none">■ 停止</button>
         </div>
@@ -183,11 +185,11 @@
             resize();
 
             // ─── 音量参数（可手动调整）─────────────────────────────────────────
-            const NOISE_VOL = 0.003; // 流水/风声底噪音量
-            const DRONE_VOL = 0.002; // 低频底鸣音量
-            const PULSE_VOL = 0.06; // 心跳脉冲音量
-            const BELL_VOL_S = 0.04; // 短钟音量
-            const BELL_VOL_L = 0.08; // 长钟音量
+            const NOISE_VOL = 0.0; // 流水/风声底噪音量
+            const DRONE_VOL = 0.0; // 低频底鸣音量
+            const PULSE_VOL = 0.2; // 心跳脉冲音量
+            const BELL_VOL_S = 0.1; // 短钟音量
+            const BELL_VOL_L = 0.2; // 长钟音量
 
             // ─── State ─────────────────────────────────────────────────────────
             let audioCtx = null;
@@ -252,13 +254,13 @@
                 const lfo = ac.createOscillator();
                 const lfoGain = ac.createGain();
                 lfo.frequency.value = 1 / 14;
-                lfoGain.gain.value = 0.06;
+                lfoGain.gain.value = 0.3;
                 lfo.type = "sine";
                 lfo.start();
                 lfo.connect(lfoGain);
                 // 让 lfo 调制 reverb 输入增益
                 const droneGain = ac.createGain();
-                droneGain.gain.value = 0.22;
+                droneGain.gain.value = 0.5;
                 lfoGain.connect(droneGain.gain); // 调制
                 // 220 Hz 泛音加倍丰富度
                 const osc2 = ac.createOscillator();

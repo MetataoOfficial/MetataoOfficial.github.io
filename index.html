@@ -1,611 +1,639 @@
-<!doctype html>
-<html lang="zh-CN">
-    <head>
-        <meta charset="UTF-8" />
-        <title>归元静坐 - 点击开始</title>
-        <style>
-            * {
-                box-sizing: border-box;
-            }
-            body {
-                margin: 0;
-                background: #020205;
-                overflow: hidden;
-                font-family: "STSong", "SimSun", serif;
-            }
-            canvas {
-                display: block;
-            }
+<!DOCTYPE html><html lang="zh-CN"><head><meta name="x-poe-datastore-behavior" content="local_only"><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
 
-            #overlay {
-                position: absolute;
-                inset: 0;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-                align-items: center;
-                color: #5a67d8;
-                z-index: 10;
-                pointer-events: none;
-            }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>归元静坐</title>
+<style>
+  :root {
+    --bg-1: #1a2230;
+    --bg-2: #08101a;
+    --accent: #c9a76a;
+    --text: #e8e0cf;
+    --muted: rgba(232, 224, 207, 0.55);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'PingFang SC', 'Microsoft YaHei', 'Songti SC', serif;
+    background: radial-gradient(ellipse at center, var(--bg-1) 0%, var(--bg-2) 100%);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  .title {
+    font-size: 1.4rem;
+    letter-spacing: 0.5em;
+    padding-left: 0.5em;
+    margin-top: 12px;
+    opacity: 0.85;
+    font-weight: 300;
+  }
+  .canvas-wrap {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    min-height: 240px;
+  }
+  #canvas { cursor: pointer; display: block; }
+  .status {
+    position: absolute;
+    bottom: 8px;
+    width: 100%;
+    text-align: center;
+    font-size: 0.95rem;
+    letter-spacing: 0.3em;
+    padding-left: 0.3em;
+    color: var(--muted);
+    pointer-events: none;
+    transition: opacity 1s;
+  }
+  .timer {
+    font-size: 1.05rem;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    margin: 4px 0 14px;
+    min-height: 1.4em;
+  }
+  .controls { width: 100%; max-width: 620px; }
+  .durations {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px 8px;
+    margin-bottom: 14px;
+  }
+  .dur-btn {
+    background: transparent;
+    border: 1px solid rgba(201, 167, 106, 0.25);
+    color: var(--text);
+    padding: 5px 11px;
+    border-radius: 18px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-family: inherit;
+  }
+  .dur-btn:hover { border-color: rgba(201, 167, 106, 0.55); }
+  .dur-btn.active {
+    background: rgba(201, 167, 106, 0.18);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .dur-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .volume-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    font-size: 0.82rem;
+    color: var(--muted);
+    padding-bottom: 12px;
+  }
+  .volume-row input[type=range] {
+    width: 200px;
+    accent-color: var(--accent);
+  }
+  @media (max-width: 480px) {
+    .title { font-size: 1.15rem; }
+    .dur-btn { padding: 4px 9px; font-size: 0.78rem; }
+    .volume-row input[type=range] { width: 160px; }
+  }
+</style>
+</head>
+<body>
+  <div class="title">归元静坐</div>
 
-            h1 {
-                font-weight: 100;
-                font-size: 4.2rem;
-                letter-spacing: 16px;
-                margin: 0 0 2rem 0;
-                text-shadow: 0 0 40px rgba(90, 103, 216, 0.4);
-            }
-            .hint {
-                font-size: 1rem;
-                letter-spacing: 6px;
-                color: #4a5568;
-                margin-bottom: 2.5rem;
-            }
+  <div class="canvas-wrap">
+    <canvas id="canvas"></canvas>
+    <div class="status" id="status">点击开始</div>
+  </div>
 
-            /* 主控制按钮 */
-            #startBtn {
-                pointer-events: auto;
-                padding: 0.65em 2.2em;
-                font-size: 1.05rem;
-                letter-spacing: 6px;
-                background: transparent;
-                color: #5a67d8;
-                border: 1px solid #3d4a8a;
-                border-radius: 4px;
-                cursor: pointer;
-                transition: all 0.3s;
-                font-family: inherit;
-            }
-            #startBtn:hover {
-                background: rgba(90, 103, 216, 0.12);
-                color: #a0aef8;
-            }
+  <div class="timer" id="timer"></div>
 
-            /* 顶部常驻工具栏 */
-            #toolbar {
-                position: absolute;
-                top: 20px;
-                left: 50%;
-                transform: translateX(-50%);
-                z-index: 20;
-                display: flex;
-                align-items: center;
-                gap: 20px;
-                padding: 10px 20px;
-                background: rgba(20, 30, 50, 0.4);
-                border-radius: 30px;
-                backdrop-filter: blur(4px);
-            }
-            #toolbar select {
-                padding: 0.3em 0.6em;
-                font-size: 0.85rem;
-                background: transparent;
-                color: #c0caff;
-                border: 1px solid #3a4568;
-                border-radius: 4px;
-                cursor: pointer;
-                font-family: inherit;
-            }
+  <div class="controls">
+    <div class="durations" id="durations"></div>
+    <div class="volume-row">
+      <span>音量</span>
+      <input type="range" id="volume" min="0" max="100" value="65">
+    </div>
+  </div>
 
-            /* 极简音量滑动条 */
-            .vol-container {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                color: #5a67d8;
-                font-size: 0.8rem;
-            }
-            input[type="range"] {
-                -webkit-appearance: none;
-                width: 80px;
-                height: 2px;
-                background: #3a4568;
-                outline: none;
-            }
-            input[type="range"]::-webkit-slider-thumb {
-                -webkit-appearance: none;
-                width: 10px;
-                height: 10px;
-                background: #5a67d8;
-                border-radius: 50%;
-                cursor: pointer;
-            }
+<script>
+/* ============================================================
+   Audio Engine — soft, layered, no noise floor
+   ============================================================ */
+class MeditationAudio {
+  constructor() {
+    this.ctx = null;
+    this.padNodes = [];
+    this.melodyTimer = null;
+    this.breathTimer = null;
+    this.onMelodyNote = null;
+    this.onBellStrike = null;
+  }
 
-            /* 结束提示 */
-            #endMsg {
-                position: absolute;
-                inset: 0;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                z-index: 30;
-                color: #9aa8f0;
-                pointer-events: none;
-                opacity: 0;
-                transition: opacity 2s;
-            }
-            #endMsg.show {
-                opacity: 1;
-            }
-            #endMsg .big {
-                font-size: 2.8rem;
-                letter-spacing: 12px;
-                margin-bottom: 1rem;
-            }
-            #endMsg .sub {
-                font-size: 1rem;
-                letter-spacing: 4px;
-                color: #4a5568;
-            }
-        </style>
-    </head>
-    <body>
-        <div id="toolbar">
-            <select id="duration">
-                <option value="0">无限</option>
-                <option value="5">5 min</option>
-                <option value="10">10 min</option>
-                <option value="15" selected>15 min</option>
-                <option value="20">20 min</option>
-                <option value="30">30 min</option>
-                <option value="45">45 min</option>
-                <option value="60">1 hour</option>
-                <option value="90">1.5 hour</option>
-                <option value="120">2 huor</option>
-                <option value="180">3 hour</option>
-                <option value="240">4 hour</option>
-            </select>
-            <div class="vol-container">
-                <span>音量</span>
-                <input
-                    type="range"
-                    id="masterVol"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value="0.8"
-                />
-            </div>
-        </div>
+  init() {
+    if (this.ctx) return;
+    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
 
-        <div id="overlay">
-            <h1>归元静坐</h1>
-            <div class="hint">静心 · 归元 · 温养</div>
-            <button id="startBtn">▶ 开始静坐</button>
-        </div>
+    // Master
+    this.master = this.ctx.createGain();
+    this.master.gain.value = 0;
+    this.master.connect(this.ctx.destination);
 
-        <div id="endMsg">
-            <div class="big">静坐圆满</div>
-            <div class="sub">感恩修行</div>
-        </div>
+    // Gentle reverb (clean tail, no hiss)
+    this.reverb = this.ctx.createConvolver();
+    this.reverb.buffer = this._makeReverb(4.5, 2.8);
+    this.reverbWet = this.ctx.createGain();
+    this.reverbWet.gain.value = 0.32;
+    this.reverb.connect(this.reverbWet);
+    this.reverbWet.connect(this.master);
 
-        <canvas id="canvas"></canvas>
+    // Soft low-pass to keep things warm and round
+    this.tone = this.ctx.createBiquadFilter();
+    this.tone.type = 'lowpass';
+    this.tone.frequency.value = 2400;
+    this.tone.Q.value = 0.5;
+    this.tone.connect(this.master);
+    this.tone.connect(this.reverb);
 
-        <script>
-            // ─── Canvas / Lorenz ───────────────────────────────────────────────
-            const canvas = document.getElementById("canvas");
-            const ctx = canvas.getContext("2d");
-            let width, height;
+    // Layer buses
+    this.padBus = this.ctx.createGain();    this.padBus.gain.value = 0.20;
+    this.melBus = this.ctx.createGain();    this.melBus.gain.value = 0.14;
+    this.bellBus = this.ctx.createGain();   this.bellBus.gain.value = 0.40;
+    this.padBus.connect(this.tone);
+    this.melBus.connect(this.tone);
+    this.bellBus.connect(this.tone);
+  }
 
-            let lx = 0.1,
-                ly = 0,
-                lz = 0;
-            const sigma = 10,
-                rho = 28,
-                beta = 8 / 3,
-                dt = 0.0075;
-            let points = [],
-                stepCount = 0;
-            const maxPoints = 2000;
+  _makeReverb(duration, decay) {
+    const rate = this.ctx.sampleRate;
+    const length = rate * duration;
+    const impulse = this.ctx.createBuffer(2, length, rate);
+    for (let ch = 0; ch < 2; ch++) {
+      const data = impulse.getChannelData(ch);
+      for (let i = 0; i < length; i++) {
+        const t = i / length;
+        // Smooth decay; halved random amplitude for cleaner tail
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, decay) * 0.45;
+      }
+    }
+    return impulse;
+  }
 
-            function resize() {
-                width = canvas.width = window.innerWidth;
-                height = canvas.height = window.innerHeight;
-            }
-            window.addEventListener("resize", resize);
-            resize();
+  setVolume(v) {
+    if (!this.master) return;
+    const t = this.ctx.currentTime;
+    this.master.gain.cancelScheduledValues(t);
+    this.master.gain.linearRampToValueAtTime(v, t + 0.4);
+  }
 
-            // ─── 音量参数 ──────────────────────────────────────────────────────
-            const NOISE_VOL = 0.0;
-            const DRONE_VOL = 0.0;
-            const PULSE_VOL = 0.2;
-            const BELL_VOL_S = 0.1;
-            const BELL_VOL_L = 0.2;
+  fadeMasterIn(seconds = 1.5, target = null) {
+    const t = this.ctx.currentTime;
+    const v = target !== null ? target : this.master.gain.value;
+    this.master.gain.cancelScheduledValues(t);
+    this.master.gain.setValueAtTime(0, t);
+    this.master.gain.linearRampToValueAtTime(v, t + seconds);
+  }
 
-            // ─── State ─────────────────────────────────────────────────────────
-            let audioCtx = null;
-            let masterGain = null; // 总增益控制
-            let isPlaying = false;
-            let timerId = null;
-            let remaining = 0;
-            let isInfinite = true;
-            let sessionStart = null;
-            let sessionDuration = 0;
+  /* ---------- Soft singing-bowl bell ---------- */
+  playBell(when = 0, freq = 246.94, duration = 10) {
+    const t0 = this.ctx.currentTime + when;
+    const partials = [
+      { mult: 1.0,  gain: 1.00, dec: duration        },
+      { mult: 2.01, gain: 0.45, dec: duration * 0.75 },
+      { mult: 3.02, gain: 0.22, dec: duration * 0.55 },
+      { mult: 4.18, gain: 0.12, dec: duration * 0.40 },
+      { mult: 5.45, gain: 0.06, dec: duration * 0.30 }
+    ];
+    const env = this.ctx.createGain();
+    env.gain.setValueAtTime(0, t0);
+    env.gain.linearRampToValueAtTime(1, t0 + 0.012);
+    env.gain.exponentialRampToValueAtTime(0.0005, t0 + duration);
+    env.connect(this.bellBus);
 
-            // ─── Audio helpers ─────────────────────────────────────────────────
-            function getCtx() {
-                if (!audioCtx) {
-                    audioCtx = new (
-                        window.AudioContext || window.webkitAudioContext
-                    )();
-                    masterGain = audioCtx.createGain();
-                    masterGain.gain.value =
-                        document.getElementById("masterVol").value * 1.5;
-                    masterGain.connect(audioCtx.destination);
-                }
-                return audioCtx;
-            }
+    partials.forEach(p => {
+      const osc = this.ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = freq * p.mult;
+      const g = this.ctx.createGain();
+      g.gain.value = 0;
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(p.gain, t0 + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + p.dec);
+      // tiny detune for shimmer
+      const det = this.ctx.createOscillator();
+      det.frequency.value = 0.4;
+      const detGain = this.ctx.createGain();
+      detGain.gain.value = freq * p.mult * 0.0008;
+      det.connect(detGain);
+      detGain.connect(osc.frequency);
 
-            function createDeepAmbience() {
-                const ac = getCtx();
-                function makeReverb(duration = 3, decay = 2) {
-                    const len = ac.sampleRate * duration;
-                    const buf = ac.createBuffer(2, len, ac.sampleRate);
-                    for (let c = 0; c < 2; c++) {
-                        const d = buf.getChannelData(c);
-                        for (let i = 0; i < len; i++) {
-                            d[i] =
-                                (Math.random() * 2 - 1) *
-                                Math.pow(1 - i / len, decay);
-                        }
-                    }
-                    const conv = ac.createConvolver();
-                    conv.buffer = buf;
-                    return conv;
-                }
+      osc.connect(g); g.connect(env);
+      osc.start(t0); det.start(t0);
+      osc.stop(t0 + duration + 0.2);
+      det.stop(t0 + duration + 0.2);
+    });
 
-                const reverb = makeReverb(4, 2.5);
-                reverb.connect(masterGain); // 改为连接到 masterGain
+    if (this.onBellStrike) setTimeout(() => this.onBellStrike(), when * 1000);
+  }
 
-                [40, 40.3].forEach((freq) => {
-                    const osc = ac.createOscillator();
-                    const gain = ac.createGain();
-                    osc.type = "sine";
-                    osc.frequency.value = freq;
-                    gain.gain.value = DRONE_VOL;
-                    osc.connect(gain);
-                    gain.connect(reverb);
-                    gain.connect(masterGain);
-                    osc.start();
-                });
+  /* ---------- Soft pad (drone with rich layers) ---------- */
+  startPad(fadeIn = 9) {
+    const t0 = this.ctx.currentTime;
 
-                const lfo = ac.createOscillator();
-                const lfoGain = ac.createGain();
-                lfo.frequency.value = 1 / 14;
-                lfoGain.gain.value = 0.2;
-                lfo.type = "sine";
-                lfo.start();
-                lfo.connect(lfoGain);
+    // Root F2 + fifth C3 + octave F3 + soft high C4
+    // Multiple slightly-detuned voices = richer body without noise
+    const voices = [
+      { f: 87.31,  type: 'sine',     gain: 0.55, det:  0  },
+      { f: 87.31,  type: 'sine',     gain: 0.30, det:  6  },
+      { f: 87.31,  type: 'sine',     gain: 0.30, det: -7  },
+      { f: 130.81, type: 'sine',     gain: 0.40, det:  0  },
+      { f: 130.81, type: 'sine',     gain: 0.22, det:  4  },
+      { f: 174.61, type: 'triangle', gain: 0.28, det:  0  },
+      { f: 174.61, type: 'sine',     gain: 0.18, det: -3  },
+      { f: 261.63, type: 'sine',     gain: 0.10, det:  0  } // soft sparkle
+    ];
 
-                const droneGain = ac.createGain();
-                droneGain.gain.value = 0.0;
-                lfoGain.connect(droneGain.gain);
+    // Slow breathing LFO (6s cycle) → amplitude
+    this.padFade = this.ctx.createGain();
+    this.padFade.gain.setValueAtTime(0, t0);
+    this.padFade.gain.linearRampToValueAtTime(1, t0 + fadeIn);
+    this.padFade.connect(this.padBus);
 
-                const osc2 = ac.createOscillator();
-                osc2.type = "sine";
-                osc2.frequency.value = 110;
-                osc2.connect(droneGain);
-                droneGain.connect(reverb);
-                osc2.start();
-            }
+    const breath = this.ctx.createGain();
+    breath.gain.value = 1;
+    breath.connect(this.padFade);
 
-            function createNatureAmbience() {
-                const ac = getCtx();
-                const bufSize = ac.sampleRate * 4;
-                const noiseBuffer = ac.createBuffer(1, bufSize, ac.sampleRate);
-                const data = noiseBuffer.getChannelData(0);
-                let b0 = 0,
-                    b1 = 0,
-                    b2 = 0,
-                    b3 = 0,
-                    b4 = 0,
-                    b5 = 0;
-                for (let i = 0; i < bufSize; i++) {
-                    const white = Math.random() * 2 - 1;
-                    b0 = 0.99886 * b0 + white * 0.0555179;
-                    b1 = 0.99332 * b1 + white * 0.0750759;
-                    b2 = 0.969 * b2 + white * 0.153852;
-                    b3 = 0.8665 * b3 + white * 0.3104856;
-                    b4 = 0.55 * b4 + white * 0.5329522;
-                    b5 = -0.7616 * b5 - white * 0.016898;
-                    data[i] =
-                        (b0 + b1 + b2 + b3 + b4 + b5 + white * 0.5362) * 0.11;
-                }
-                const source = ac.createBufferSource();
-                source.buffer = noiseBuffer;
-                source.loop = true;
+    const lfo = this.ctx.createOscillator();
+    lfo.frequency.value = 1 / 6; // 6-second breath
+    const lfoAmt = this.ctx.createGain();
+    lfoAmt.gain.value = 0.18;
+    lfo.connect(lfoAmt);
+    lfoAmt.connect(breath.gain);
+    lfo.start();
+    this.padNodes.push(lfo);
 
-                const filter = ac.createBiquadFilter();
-                filter.type = "bandpass";
-                filter.frequency.value = 600;
-                filter.Q.value = 0.4;
+    voices.forEach(v => {
+      const osc = this.ctx.createOscillator();
+      osc.type = v.type;
+      osc.frequency.value = v.f;
+      osc.detune.value = v.det;
+      const g = this.ctx.createGain();
+      g.gain.value = v.gain;
+      osc.connect(g); g.connect(breath);
 
-                const gain = ac.createGain();
-                gain.gain.value = NOISE_VOL;
+      // gentle vibrato per voice for organic motion
+      const vib = this.ctx.createOscillator();
+      vib.frequency.value = 0.12 + Math.random() * 0.10;
+      const vibG = this.ctx.createGain();
+      vibG.gain.value = v.f * 0.0025;
+      vib.connect(vibG); vibG.connect(osc.frequency);
+      vib.start();
 
-                source.connect(filter).connect(gain).connect(masterGain);
-                source.start();
-            }
+      osc.start();
+      this.padNodes.push(osc, vib);
+    });
+  }
 
-            function playPulse(freq = 50, vol = PULSE_VOL, decay = 0.55) {
-                const ac = getCtx();
-                const osc = ac.createOscillator();
-                const gain = ac.createGain();
-                osc.type = "sine";
-                osc.frequency.setValueAtTime(freq, ac.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(
-                    20,
-                    ac.currentTime + decay,
-                );
-                gain.gain.setValueAtTime(vol, ac.currentTime);
-                gain.gain.exponentialRampToValueAtTime(
-                    0.001,
-                    ac.currentTime + decay,
-                );
-                osc.connect(gain).connect(masterGain);
-                osc.start();
-                osc.stop(ac.currentTime + decay + 0.05);
-            }
+  stopPad(fadeOut = 7) {
+    if (!this.padFade) return;
+    const t0 = this.ctx.currentTime;
+    this.padFade.gain.cancelScheduledValues(t0);
+    this.padFade.gain.setValueAtTime(this.padFade.gain.value, t0);
+    this.padFade.gain.linearRampToValueAtTime(0, t0 + fadeOut);
+    setTimeout(() => {
+      this.padNodes.forEach(n => { try { n.stop(); } catch(e){} });
+      this.padNodes = [];
+    }, fadeOut * 1000 + 200);
+  }
 
-            const scale = [
-                196.0, 220.0, 261.63, 293.66, 329.63, 392.0, 440.0, 523.25,
-            ];
+  /* ---------- Pentatonic melody (gentle, sparse) ---------- */
+  playMelodyNote(freq, duration = 6) {
+    const t0 = this.ctx.currentTime;
+    const env = this.ctx.createGain();
+    env.gain.setValueAtTime(0, t0);
+    env.gain.linearRampToValueAtTime(0.55, t0 + 1.6);
+    env.gain.linearRampToValueAtTime(0.30, t0 + duration * 0.55);
+    env.gain.linearRampToValueAtTime(0.0, t0 + duration);
+    env.connect(this.melBus);
 
-            function playGuqinNode(lx, lz) {
-                const ac = getCtx();
-                const osc = ac.createOscillator();
-                const g = ac.createGain();
-                const filter = ac.createBiquadFilter();
-                const pan = ac.createStereoPanner();
+    // Fundamental + soft octave + warm triangle for body
+    const o1 = this.ctx.createOscillator(); o1.type = 'sine';     o1.frequency.value = freq;
+    const o2 = this.ctx.createOscillator(); o2.type = 'sine';     o2.frequency.value = freq * 2;
+    const o3 = this.ctx.createOscillator(); o3.type = 'triangle'; o3.frequency.value = freq; o3.detune.value = 5;
+    const g1 = this.ctx.createGain(); g1.gain.value = 1.0;
+    const g2 = this.ctx.createGain(); g2.gain.value = 0.18;
+    const g3 = this.ctx.createGain(); g3.gain.value = 0.13;
+    o1.connect(g1); o2.connect(g2); o3.connect(g3);
+    g1.connect(env); g2.connect(env); g3.connect(env);
 
-                filter.type = "lowpass";
-                filter.frequency.value = 3000;
+    [o1, o2, o3].forEach(o => { o.start(t0); o.stop(t0 + duration + 0.2); });
 
-                const idx = Math.floor(Math.abs(lx) % scale.length);
-                osc.frequency.value = scale[idx];
-                osc.type = "sine";
-                pan.pan.value = Math.max(-1, Math.min(1, lx / 25));
+    if (this.onMelodyNote) this.onMelodyNote(freq);
+  }
 
-                g.gain.setValueAtTime(0, ac.currentTime);
-                g.gain.linearRampToValueAtTime(0.022, ac.currentTime + 1);
-                g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 10);
+  startMelody() {
+    // F major pentatonic, weighted to mid-range — peaceful, "归元"
+    const scale = [174.61, 196.00, 220.00, 261.63, 293.66, 349.23, 392.00, 440.00, 523.25];
+    let idx = 4;
+    const next = () => {
+      const step = Math.floor(Math.random() * 7) - 3;
+      idx = Math.max(0, Math.min(scale.length - 1, idx + step));
+      const dur = 5.5 + Math.random() * 3;
+      this.playMelodyNote(scale[idx], dur);
 
-                osc.connect(filter).connect(g).connect(pan).connect(masterGain);
-                osc.start();
-                osc.stop(ac.currentTime + 11);
-            }
+      // Occasional gentle harmony a fifth/third below
+      if (Math.random() < 0.28) {
+        setTimeout(() => {
+          const hi = Math.max(0, idx - 2);
+          this.playMelodyNote(scale[hi], dur * 0.8);
+        }, 1100 + Math.random() * 1400);
+      }
 
-            function playBell(delay = 0, duration = 6, volume = 0.35) {
-                const ac = getCtx();
-                const partials = [
-                    { ratio: 1, vol: 1.0 },
-                    { ratio: 2.76, vol: 0.4 },
-                    { ratio: 5.4, vol: 0.25 },
-                    { ratio: 8.93, vol: 0.12 },
-                ];
-                const baseFreq = 220;
+      const gap = 6500 + Math.random() * 4500;
+      this.melodyTimer = setTimeout(next, gap);
+    };
+    // Begin after pad establishes
+    this.melodyTimer = setTimeout(next, 5000);
+  }
 
-                partials.forEach(({ ratio, vol }) => {
-                    const osc = ac.createOscillator();
-                    const gain = ac.createGain();
-                    osc.type = "sine";
-                    osc.frequency.value = baseFreq * ratio;
-                    const t0 = ac.currentTime + delay;
-                    gain.gain.setValueAtTime(0, t0);
-                    gain.gain.linearRampToValueAtTime(volume * vol, t0 + 0.01);
-                    gain.gain.exponentialRampToValueAtTime(
-                        0.001,
-                        t0 + duration,
-                    );
-                    osc.connect(gain).connect(masterGain);
-                    osc.start(t0);
-                    osc.stop(t0 + duration + 0.1);
-                });
-            }
+  stopMelody() {
+    if (this.melodyTimer) { clearTimeout(this.melodyTimer); this.melodyTimer = null; }
+  }
+}
 
-            function ringEndBells() {
-                playBell(0.3, 3, BELL_VOL_S);
-                playBell(1.8, 8, BELL_VOL_L);
-            }
+/* ============================================================
+   Visuals — synced to audio breath + melody ripples
+   ============================================================ */
+const canvas = document.getElementById('canvas');
+const ctx2d = canvas.getContext('2d');
+let W = 0, H = 0, CX = 0, CY = 0, DPR = 1;
 
-            function makeSilentAudio() {
-                const wav = new Uint8Array([
-                    0x52, 0x49, 0x46, 0x46, 0x26, 0x00, 0x00, 0x00, 0x57, 0x41,
-                    0x56, 0x45, 0x66, 0x6d, 0x74, 0x20, 0x10, 0x00, 0x00, 0x00,
-                    0x01, 0x00, 0x01, 0x00, 0x44, 0xac, 0x00, 0x00, 0x88, 0x58,
-                    0x01, 0x00, 0x02, 0x00, 0x10, 0x00, 0x64, 0x61, 0x74, 0x61,
-                    0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
-                ]);
-                const b64 = btoa(String.fromCharCode(...wav));
-                const el = document.createElement("audio");
-                el.src = "data:audio/wav;base64," + b64;
-                el.loop = true;
-                el.volume = 0;
-                document.body.appendChild(el);
-                return el;
-            }
-            let _silentAudio = null;
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  const size = Math.min(window.innerWidth * 0.85, window.innerHeight * 0.5, 480);
+  canvas.width = Math.floor(size * DPR);
+  canvas.height = Math.floor(size * DPR);
+  canvas.style.width = size + 'px';
+  canvas.style.height = size + 'px';
+  ctx2d.setTransform(1, 0, 0, 1, 0, 0);
+  ctx2d.scale(DPR, DPR);
+  W = size; H = size;
+  CX = W / 2; CY = H / 2;
+}
+window.addEventListener('resize', resize);
+resize();
 
-            // ─── 播放控制 ──────────────────────────────────────────────────────
-            let pulseInterval = null;
+let intensity = 0;          // overall visual presence (0..1)
+let intensityTarget = 0;
+let ripples = [];
+let bellFlash = 0;
+let hueDrift = 0;
 
-            function startAudio() {
-                const ac = getCtx();
-                if (ac.state === "suspended") ac.resume();
+function startTimeNow() { return performance.now() / 1000; }
+const epoch = startTimeNow();
 
-                if (!_silentAudio) _silentAudio = makeSilentAudio();
-                _silentAudio.play().catch(() => {});
+function draw() {
+  ctx2d.clearRect(0, 0, W, H);
 
-                if (!startAudio._initialized) {
-                    createDeepAmbience();
-                    createNatureAmbience();
-                    startAudio._initialized = true;
-                }
+  // smooth intensity
+  intensity += (intensityTarget - intensity) * 0.02;
+  bellFlash *= 0.985;
+  hueDrift += 0.02;
 
-                pulseInterval = setInterval(() => {
-                    if (isPlaying) playPulse(50, PULSE_VOL, 0.55);
-                }, 1000);
-            }
+  // Synced breathing phase (matches audio LFO 6s)
+  const t = startTimeNow() - epoch;
+  const breath = (Math.sin((t / 6) * Math.PI * 2) + 1) / 2; // 0..1
 
-            function stopAudio() {
-                clearInterval(pulseInterval);
-                if (_silentAudio) _silentAudio.pause();
-                if (audioCtx) audioCtx.suspend();
-            }
+  const baseR = Math.min(W, H) * 0.18;
+  const r = baseR * (1 + breath * 0.22 * intensity) + bellFlash * 30;
 
-            // ─── 定时器 ────────────────────────────────────────────────────────
-            function startTimer() {
-                stopTimer();
-                const val = parseInt(document.getElementById("duration").value);
-                isInfinite = val === 0;
-                if (isInfinite) {
-                    document.title = "归元静坐";
-                    return;
-                }
-                sessionDuration = val * 60;
-                sessionStart = Date.now();
-                remaining = sessionDuration;
-                updateTitle();
+  // Outer halos
+  for (let i = 6; i >= 1; i--) {
+    const rr = r * (1 + i * 0.32);
+    const a = 0.05 * intensity * (1 - i / 7) + bellFlash * 0.05;
+    const grad = ctx2d.createRadialGradient(CX, CY, r, CX, CY, rr);
+    grad.addColorStop(0, `hsla(${42 + Math.sin(hueDrift * 0.05) * 8}, 55%, 62%, ${a})`);
+    grad.addColorStop(1, 'transparent');
+    ctx2d.fillStyle = grad;
+    ctx2d.beginPath(); ctx2d.arc(CX, CY, rr, 0, Math.PI * 2); ctx2d.fill();
+  }
 
-                timerId = setInterval(() => {
-                    const elapsed = Math.floor(
-                        (Date.now() - sessionStart) / 1000,
-                    );
-                    remaining = sessionDuration - elapsed;
-                    if (remaining <= 0) {
-                        remaining = 0;
-                        endSession();
-                    } else {
-                        updateTitle();
-                    }
-                }, 500);
-            }
+  // Melody ripples
+  ripples = ripples.filter(rp => rp.life > 0);
+  ripples.forEach(rp => {
+    rp.life -= 0.0055;
+    rp.radius += 0.55;
+    const a = rp.life * 0.45;
+    ctx2d.strokeStyle = `hsla(${rp.hue}, 50%, 72%, ${a})`;
+    ctx2d.lineWidth = 1.2;
+    ctx2d.beginPath();
+    ctx2d.arc(CX, CY, baseR + rp.radius, 0, Math.PI * 2);
+    ctx2d.stroke();
+  });
 
-            function stopTimer() {
-                if (timerId) {
-                    clearInterval(timerId);
-                    timerId = null;
-                }
-            }
+  // Inner orb
+  const orb = ctx2d.createRadialGradient(CX, CY - r * 0.25, 0, CX, CY, r);
+  orb.addColorStop(0, `hsla(${46 + breath * 8}, 65%, 78%, ${0.55 + intensity * 0.35 + bellFlash * 0.3})`);
+  orb.addColorStop(0.55, `hsla(36, 50%, 50%, ${0.30 + intensity * 0.25})`);
+  orb.addColorStop(1, `hsla(26, 40%, 28%, 0.12)`);
+  ctx2d.fillStyle = orb;
+  ctx2d.beginPath(); ctx2d.arc(CX, CY, r, 0, Math.PI * 2); ctx2d.fill();
 
-            function updateTitle() {
-                if (isInfinite || remaining <= 0) return;
-                const m = Math.floor(remaining / 60);
-                const s = remaining % 60;
-                document.title = `归元静坐 - ${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
-            }
+  // Edge ring
+  ctx2d.strokeStyle = `hsla(42, 60%, 72%, ${0.35 + intensity * 0.4 + bellFlash * 0.3})`;
+  ctx2d.lineWidth = 1.4;
+  ctx2d.beginPath(); ctx2d.arc(CX, CY, r, 0, Math.PI * 2); ctx2d.stroke();
 
-            function endSession() {
-                stopTimer();
-                isPlaying = false;
-                document.getElementById("startBtn").innerHTML = "▶ 开始静坐";
+  // Center point
+  ctx2d.fillStyle = `hsla(46, 75%, 88%, ${0.55 + breath * 0.4 * intensity})`;
+  ctx2d.beginPath();
+  ctx2d.arc(CX, CY, 2.5 + breath * 2.2 * intensity, 0, Math.PI * 2);
+  ctx2d.fill();
 
-                const ac = getCtx();
-                const doRing = () => {
-                    ringEndBells();
-                    setTimeout(() => {
-                        if (audioCtx) audioCtx.suspend();
-                    }, 11000);
-                };
+  requestAnimationFrame(draw);
+}
+draw();
 
-                if (ac.state === "suspended") ac.resume().then(doRing);
-                else doRing();
+function addRipple(hue) { ripples.push({ radius: 0, life: 1, hue }); }
 
-                setTimeout(() => {
-                    document.getElementById("endMsg").classList.add("show");
-                    document.title = "归元静坐 - 圆满";
-                }, 600);
-            }
+/* ============================================================
+   Session Logic
+   ============================================================ */
+const audio = new MeditationAudio();
+const statusEl   = document.getElementById('status');
+const timerEl    = document.getElementById('timer');
+const durationsEl= document.getElementById('durations');
+const volumeEl   = document.getElementById('volume');
 
-            // ─── UI 事件 ───────────────────────────────────────────────────────
-            const startBtn = document.getElementById("startBtn");
-            const masterVol = document.getElementById("masterVol");
+const durations = [
+  { label: '无限',    value: 0   },
+  { label: '5 min',   value: 5   },
+  { label: '10 min',  value: 10  },
+  { label: '15 min',  value: 15  },
+  { label: '20 min',  value: 20  },
+  { label: '30 min',  value: 30  },
+  { label: '45 min',  value: 45  },
+  { label: '1 hour',  value: 60  },
+  { label: '1.5 hour',value: 90  },
+  { label: '2 hour',  value: 120 },
+  { label: '3 hour',  value: 180 },
+  { label: '4 hour',  value: 240 }
+];
+let selectedDuration = 0;
 
-            startBtn.addEventListener("click", () => {
-                if (!isPlaying) {
-                    // 开始播放
-                    isPlaying = true;
-                    startBtn.innerHTML = "■ 停止";
-                    document.getElementById("endMsg").classList.remove("show");
-                    startAudio();
-                    startTimer();
-                } else {
-                    // 停止播放
-                    isPlaying = false;
-                    startBtn.innerHTML = "▶ 开始静坐";
-                    stopAudio();
-                    stopTimer();
-                    document.title = "归元静坐 - 已停止";
-                }
-            });
+durations.forEach((d, i) => {
+  const b = document.createElement('button');
+  b.className = 'dur-btn' + (i === 0 ? ' active' : '');
+  b.textContent = d.label;
+  b.addEventListener('click', () => {
+    if (state !== 'idle') return;
+    document.querySelectorAll('.dur-btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    selectedDuration = d.value;
+  });
+  durationsEl.appendChild(b);
+});
 
-            masterVol.addEventListener("input", (e) => {
-                if (masterGain) {
-                    masterGain.gain.setTargetAtTime(
-                        e.target.value,
-                        getCtx().currentTime,
-                        0.05,
-                    );
-                }
-            });
+let state = 'idle';   // idle | intro | playing | outro
+let scheduled = [];
+let timerInt = null;
 
-            document
-                .getElementById("duration")
-                .addEventListener("change", () => {
-                    if (isPlaying) {
-                        isPlaying = false;
-                        startBtn.innerHTML = "▶ 开始静坐";
-                        stopAudio();
-                        stopTimer();
-                    }
-                });
+function fmt(sec) {
+  sec = Math.max(0, Math.floor(sec));
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+function later(fn, ms) { const id = setTimeout(fn, ms); scheduled.push(id); return id; }
+function clearAll() { scheduled.forEach(clearTimeout); scheduled = []; if (timerInt) { clearInterval(timerInt); timerInt = null; } }
+function setStatus(text) { statusEl.textContent = text; }
+function setButtonsEnabled(enabled) {
+  document.querySelectorAll('.dur-btn').forEach(b => b.disabled = !enabled);
+}
 
-            // ─── 动画循环 ──────────────────────────────────────────────────────
-            function animate() {
-                const dx = sigma * (ly - lx) * dt;
-                const dy = (lx * (rho - lz) - ly) * dt;
-                const dz = (lx * ly - beta * lz) * dt;
-                lx += dx;
-                ly += dy;
-                lz += dz;
+/* Audio bridges visuals */
+audio.onMelodyNote = (freq) => {
+  // hue keyed to pitch so ripples shift gently with melody
+  const hue = 30 + ((freq - 174) / 360) * 50;
+  addRipple(hue);
+};
+audio.onBellStrike = () => { bellFlash = 1; addRipple(45); };
 
-                stepCount++;
-                if (isPlaying && stepCount % 40 === 0 && Math.abs(lx) > 10) {
-                    playGuqinNode(lx, lz);
-                }
+/* ---- Session start ---- */
+function start() {
+  if (state !== 'idle') {
+    if (state === 'playing' || state === 'intro') endEarly();
+    return;
+  }
+  audio.init();
+  if (audio.ctx.state === 'suspended') audio.ctx.resume();
+  audio.setVolume(parseInt(volumeEl.value) / 100);
 
-                points.push({ x: lx, y: ly, z: lz });
-                if (points.length > maxPoints) points.shift();
+  state = 'intro';
+  setButtonsEnabled(false);
+  intensityTarget = 1;
+  setStatus('准备入静');
 
-                ctx.fillStyle = "rgba(2,2,5,0.15)";
-                ctx.fillRect(0, 0, width, height);
+  // 1) After 3s, opening bell (gives "几秒间隔")
+  later(() => {
+    setStatus('');
+    audio.playBell(0, 246.94, 9);   // B3 — soft, lower bowl
+  }, 3000);
 
-                ctx.save();
-                ctx.translate(width / 2, height * 0.85);
-                const s = 14;
+  // 2) After bell settles (~4s after strike), music gently fades in
+  later(() => {
+    audio.startPad(9);
+    audio.startMelody();
+    state = 'playing';
+    startCountdown();
+  }, 7000);
+}
 
-                ctx.beginPath();
-                ctx.strokeStyle = "#1a202c";
-                ctx.lineWidth = 1;
-                for (let i = 1; i < points.length; i++) {
-                    ctx.lineTo(points[i].x * s, -points[i].z * s);
-                }
-                ctx.stroke();
+function startCountdown() {
+  if (selectedDuration === 0) {
+    timerEl.textContent = '∞';
+    return;
+  }
+  const total = selectedDuration * 60;
+  const t0 = Date.now();
+  timerInt = setInterval(() => {
+    const elapsed = (Date.now() - t0) / 1000;
+    const remain = total - elapsed;
+    timerEl.textContent = fmt(remain);
+    if (remain <= 0) { clearInterval(timerInt); timerInt = null; beginOutro(); }
+  }, 500);
 
-                ctx.beginPath();
-                ctx.arc(lx * s, -lz * s, 3.5, 0, Math.PI * 2);
-                const hue = 220 + lz / 2;
-                ctx.fillStyle = `hsla(${hue},40%,50%,0.8)`;
-                ctx.shadowBlur = 20;
-                ctx.shadowColor = `hsla(${hue},50%,40%,0.5)`;
-                ctx.fill();
-                ctx.restore();
+  // Begin outro 8s before end so music has time to fade gracefully
+  later(() => {
+    if (state === 'playing') beginOutro();
+  }, Math.max(0, (total - 8) * 1000));
+}
 
-                requestAnimationFrame(animate);
-            }
-            animate();
-        </script>
-    </body>
-</html>
+/* ---- Session end (graceful) ---- */
+function beginOutro() {
+  if (state === 'outro' || state === 'idle') return;
+  state = 'outro';
+  audio.stopMelody();
+  audio.stopPad(7);                   // music fades out (~7s)
+
+  // After music fades + a few seconds pause, ring closing bell
+  later(() => {
+    audio.playBell(0, 246.94, 11);
+    setStatus('静坐圆满');
+  }, 10000);                          // 7s fade + ~3s silence
+
+  later(() => setStatus('感恩修行'), 15000);
+
+  later(() => {
+    state = 'idle';
+    intensityTarget = 0;
+    setStatus('点击开始');
+    timerEl.textContent = '';
+    setButtonsEnabled(true);
+  }, 22000);
+}
+
+function endEarly() {
+  clearAll();
+  // ensure music stops cleanly even if intro was still running
+  if (audio.padFade) audio.stopPad(5);
+  audio.stopMelody();
+  state = 'outro';
+
+  later(() => {
+    audio.playBell(0, 246.94, 10);
+    setStatus('静坐圆满');
+  }, 6000);
+
+  later(() => setStatus('感恩修行'), 11000);
+
+  later(() => {
+    state = 'idle';
+    intensityTarget = 0;
+    setStatus('点击开始');
+    timerEl.textContent = '';
+    setButtonsEnabled(true);
+  }, 18000);
+}
+
+canvas.addEventListener('click', start);
+statusEl.addEventListener('click', start);
+volumeEl.addEventListener('input', () => {
+  if (audio.ctx) audio.setVolume(parseInt(volumeEl.value) / 100);
+});
+</script>
+
+
+</body></html>

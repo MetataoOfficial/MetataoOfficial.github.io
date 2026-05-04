@@ -30,12 +30,13 @@
     font-size: 1.4rem;
     letter-spacing: 0.5em;
     padding-left: 0.5em;
-    margin-top: 12px;
+    margin-top: 0;
+    margin-bottom: 6px;
     opacity: 0.85;
     font-weight: 300;
   }
   .canvas-wrap {
-    flex: 1;
+    flex: 0 0 auto;
     width: 100%;
     display: flex;
     align-items: center;
@@ -111,11 +112,12 @@
 </style>
 </head>
 <body>
-  <div class="title">归元静坐</div>
-
-  <div class="canvas-wrap">
-    <canvas id="canvas"></canvas>
-    <div class="status" id="status">点击开始</div>
+  <div style="display:flex;flex-direction:column;align-items:center;flex:1;justify-content:center;width:100%;gap:0;">
+    <div class="title">归元静坐</div>
+    <div class="canvas-wrap">
+      <canvas id="canvas"></canvas>
+      <div class="status" id="status">点击开始</div>
+    </div>
   </div>
 
   <div class="timer" id="timer"></div>
@@ -149,7 +151,16 @@ class MeditationAudio {
     // Master
     this.master = this.ctx.createGain();
     this.master.gain.value = 0;
-    this.master.connect(this.ctx.destination);
+
+    // 动态限幅器：防止多路叠加溢出破音
+    const comp = this.ctx.createDynamicsCompressor();
+    comp.threshold.value = -8;
+    comp.knee.value      =  8;
+    comp.ratio.value     =  4;
+    comp.attack.value    =  0.003;
+    comp.release.value   =  0.25;
+    this.master.connect(comp);
+    comp.connect(this.ctx.destination);
 
     // Gentle reverb (clean tail, no hiss)
     this.reverb = this.ctx.createConvolver();
@@ -217,8 +228,8 @@ class MeditationAudio {
       { mult: 5.45, gain: 0.06, dec: duration * 0.30 }
     ];
     const env = this.ctx.createGain();
-    env.gain.setValueAtTime(0, t0);
-    env.gain.linearRampToValueAtTime(1, t0 + 0.012);
+    env.gain.setValueAtTime(0.0001, t0);
+    env.gain.linearRampToValueAtTime(1, t0 + 0.018);
     env.gain.exponentialRampToValueAtTime(0.0005, t0 + duration);
     env.connect(this.bellBus);
 
@@ -227,9 +238,8 @@ class MeditationAudio {
       osc.type = 'sine';
       osc.frequency.value = freq * p.mult;
       const g = this.ctx.createGain();
-      g.gain.value = 0;
-      g.gain.setValueAtTime(0, t0);
-      g.gain.linearRampToValueAtTime(p.gain, t0 + 0.012);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.linearRampToValueAtTime(p.gain, t0 + 0.018);
       g.gain.exponentialRampToValueAtTime(0.0001, t0 + p.dec);
       // tiny detune for shimmer
       const det = this.ctx.createOscillator();
@@ -252,17 +262,20 @@ class MeditationAudio {
   startPad(fadeIn = 9) {
     const t0 = this.ctx.currentTime;
 
-    // Root F2 + fifth C3 + octave F3 + soft high C4
-    // Multiple slightly-detuned voices = richer body without noise
+    // Root F2 + major third A2 + fifth C3 + octave F3 + soft high C4
+    // 增加大三度 A2 声部，营造温暖大调感
     const voices = [
-      { f: 87.31,  type: 'sine',     gain: 0.55, det:  0  },
-      { f: 87.31,  type: 'sine',     gain: 0.30, det:  6  },
-      { f: 87.31,  type: 'sine',     gain: 0.30, det: -7  },
-      { f: 130.81, type: 'sine',     gain: 0.40, det:  0  },
-      { f: 130.81, type: 'sine',     gain: 0.22, det:  4  },
-      { f: 174.61, type: 'triangle', gain: 0.28, det:  0  },
-      { f: 174.61, type: 'sine',     gain: 0.18, det: -3  },
-      { f: 261.63, type: 'sine',     gain: 0.10, det:  0  } // soft sparkle
+      { f: 87.31,  type: 'sine',     gain: 0.55, det:  0  },  // F2 root
+      { f: 87.31,  type: 'sine',     gain: 0.28, det:  6  },  // F2 +6¢
+      { f: 87.31,  type: 'sine',     gain: 0.28, det: -7  },  // F2 -7¢
+      { f: 110.00, type: 'sine',     gain: 0.30, det:  0  },  // A2 大三度（新增）
+      { f: 110.00, type: 'sine',     gain: 0.16, det:  5  },  // A2 轻微失谐
+      { f: 130.81, type: 'sine',     gain: 0.38, det:  0  },  // C3 五度
+      { f: 130.81, type: 'sine',     gain: 0.18, det:  4  },  // C3 +4¢
+      { f: 174.61, type: 'triangle', gain: 0.24, det:  0  },  // F3 八度
+      { f: 174.61, type: 'sine',     gain: 0.14, det: -3  },  // F3 -3¢
+      { f: 220.00, type: 'sine',     gain: 0.09, det:  0  },  // A3 上方三度泛音
+      { f: 261.63, type: 'sine',     gain: 0.07, det:  0  }   // C4 软光泽
     ];
 
     // Slow breathing LFO (6s cycle) → amplitude
@@ -328,17 +341,19 @@ class MeditationAudio {
     env.gain.linearRampToValueAtTime(0.0, t0 + duration);
     env.connect(this.melBus);
 
-    // Fundamental + soft octave + warm triangle for body
+    // Fundamental + soft octave + warm triangle + gentle sub-octave body
     const o1 = this.ctx.createOscillator(); o1.type = 'sine';     o1.frequency.value = freq;
     const o2 = this.ctx.createOscillator(); o2.type = 'sine';     o2.frequency.value = freq * 2;
     const o3 = this.ctx.createOscillator(); o3.type = 'triangle'; o3.frequency.value = freq; o3.detune.value = 5;
-    const g1 = this.ctx.createGain(); g1.gain.value = 1.0;
-    const g2 = this.ctx.createGain(); g2.gain.value = 0.18;
-    const g3 = this.ctx.createGain(); g3.gain.value = 0.13;
-    o1.connect(g1); o2.connect(g2); o3.connect(g3);
-    g1.connect(env); g2.connect(env); g3.connect(env);
+    const o4 = this.ctx.createOscillator(); o4.type = 'sine';     o4.frequency.value = freq * 1.5; // 五度泛音
+    const g1 = this.ctx.createGain(); g1.gain.value = 1.00;
+    const g2 = this.ctx.createGain(); g2.gain.value = 0.16;
+    const g3 = this.ctx.createGain(); g3.gain.value = 0.12;
+    const g4 = this.ctx.createGain(); g4.gain.value = 0.08;
+    o1.connect(g1); o2.connect(g2); o3.connect(g3); o4.connect(g4);
+    g1.connect(env); g2.connect(env); g3.connect(env); g4.connect(env);
 
-    [o1, o2, o3].forEach(o => { o.start(t0); o.stop(t0 + duration + 0.2); });
+    [o1, o2, o3, o4].forEach(o => { o.start(t0); o.stop(t0 + duration + 0.2); });
 
     if (this.onMelodyNote) this.onMelodyNote(freq);
   }
@@ -353,12 +368,13 @@ class MeditationAudio {
       const dur = 5.5 + Math.random() * 3;
       this.playMelodyNote(scale[idx], dur);
 
-      // Occasional gentle harmony a fifth/third below
-      if (Math.random() < 0.28) {
+      // 和声声部：随机选三度（2步）或四度（3步），更符合五声调性
+      if (Math.random() < 0.32) {
         setTimeout(() => {
-          const hi = Math.max(0, idx - 2);
-          this.playMelodyNote(scale[hi], dur * 0.8);
-        }, 1100 + Math.random() * 1400);
+          const steps = Math.random() < 0.6 ? 2 : 3;   // 三度居多，偶用四度
+          const hi = Math.max(0, idx - steps);
+          this.playMelodyNote(scale[hi], dur * 0.75);
+        }, 1200 + Math.random() * 1200);
       }
 
       const gap = 6500 + Math.random() * 4500;
